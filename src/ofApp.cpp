@@ -47,6 +47,13 @@ void ofApp::setup() {
     midiFile.addNoteOn(60, 100, 0);
     midiFile.addNoteOff(60, 100, 384);
     midiFile.save("midi.mid");
+    
+    
+    // Gui
+    gui.setup();
+    gui.add(time_threshold.setup("time threshold",-20, plotHeight/2, -plotHeight/2));
+    gui.add(freq_threshold.setup("freq threshold",100,0, plotHeight));
+    
 }
 
 //------------------------------------------------------------
@@ -62,6 +69,7 @@ void ofApp::draw() {
 	soundMutex.unlock();
 	
 	plot(drawBuffer, plotHeight / 2, 0, false);
+    timePeaks(drawBuffer, plotHeight / 2, 0, time_threshold);
     
     
 	ofTranslate(0, plotHeight + 16);
@@ -72,18 +80,23 @@ void ofApp::draw() {
     ofPushMatrix();
     ofTranslate(16,plotHeight + 16 + 16);
     // draw circle at highest peaks
-    freqPeaks(drawBins, -plotHeight, plotHeight / 2, 100);
+    freqPeaks(drawBins, -plotHeight, plotHeight / 2, freq_threshold);
     
     ofPopMatrix();
     
     if (PAUSE) {
         ofSetColor(255);
         for (int i = 1; i < midiNotes.size(); i++) { // first index is 0
-            ofDrawBitmapString(ofToString(midiNotes[i]),ofGetWidth()/2 + i*50 , ofGetHeight() - 200);
+            ofDrawBitmapString(ofToString(midiNotes[i]),200 + i*50 , ofGetHeight() - 200);
             // export to midi file
+        }
+        for (int i = 1; i < timeMarkers.size(); i++) { 
+            ofDrawBitmapString(ofToString(timeMarkers[i]),200 + i*50 , ofGetHeight() - 300);
+            
         }
     }
     
+    gui.draw();
 	
 }
 
@@ -92,6 +105,36 @@ float powFreq(float i) {
 	return powf(i, 3);
 }
 
+//------------------------------------------------------------
+void ofApp::timePeaks(vector<float> buffer, float scale, float offset, float threshold) {
+    int n = buffer.size();
+  
+    glPushMatrix();
+    glTranslatef(0, plotHeight/2 + offset, 0);
+    ofSetColor(255, 255, 0);
+    ofDrawLine(0, threshold, n, threshold); // threshold line
+    
+    int peaks = 0;
+    timeMarkers.clear();
+    for (int i = 0; i < n; i++) {
+        float val = (buffer[i] * scale);
+        if (val < threshold) {
+            peaks++;
+            //cout << val << endl;
+            
+            float t = (i * (1.0/FS)) * 1000; // time (ms)
+          
+            timeMarkers.resize(peaks);
+            timeMarkers.push_back(t);
+
+            ofDrawCircle(i, buffer[i] * scale, 5);
+            ofDrawBitmapString(ofToString(t),i, 600); // times
+            
+            
+        }
+    }
+    glPopMatrix();
+}
 
 //------------------------------------------------------------
 void ofApp::freqPeaks(vector<float> buffer, float scale, float offset, float threshold) {
@@ -100,7 +143,7 @@ void ofApp::freqPeaks(vector<float> buffer, float scale, float offset, float thr
     glPushMatrix();
     glTranslatef(0, plotHeight/2 + offset, 0);
     ofSetColor(255, 0, 0);
-    ofDrawLine(0, -threshold,(n/16) * factor,-threshold); // threshold line
+    ofDrawLine(0, -threshold,(n/16) * factor, -threshold); // threshold line
     
     int peaks = 0;
     midiNotes.clear();
@@ -115,7 +158,7 @@ void ofApp::freqPeaks(vector<float> buffer, float scale, float offset, float thr
             midiNotes.resize(peaks);
             midiNotes.push_back(midiNote);
             
-            ofDrawCircle(i*factor, buffer[i] * scale, 10);
+            ofDrawCircle(i*factor, buffer[i] * scale, 5);
             ofDrawBitmapString(ofToString(f),i*factor, 40); // frequencies
 
             
@@ -127,6 +170,7 @@ void ofApp::freqPeaks(vector<float> buffer, float scale, float offset, float thr
 //------------------------------------------------------------
 void ofApp::plot(vector<float>& buffer, float scale, float offset, bool freq) {
 	ofNoFill();
+    ofSetColor(255);
 	int n = buffer.size();
     int factor = 10;
     if (freq) {
