@@ -16,6 +16,12 @@ public:
 	void audioReceived(float* input, int bufferSize, int nChannels);
 	void draw();
 	void keyPressed(int key);
+    
+    void shuffle_midiNotes();
+    void shuffle_timeMarkers();
+    int roundUp(int numToRound, int multiple);
+    
+    void exportMidi();
 
 	int plotHeight, bufferSize;
     

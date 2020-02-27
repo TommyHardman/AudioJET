@@ -37,23 +37,67 @@ void ofApp::setup() {
 	//ofSoundStreamSetup(0, 1, this, 44100, bufferSize, 4);
     soundStream.setup(this, 0, 1, FS, bufferSize, 4);
     
- 
 	mode = MIC;
 	appWidth = ofGetWidth();
 	appHeight = ofGetHeight();
 
 	ofBackground(0, 0, 0);
     
-    midiFile.addNoteOn(60, 100, 0);
-    midiFile.addNoteOff(60, 100, 384);
+    midiFile.clear(); // clear file and save
     midiFile.save("midi.mid");
-    
     
     // Gui
     gui.setup();
     gui.add(time_threshold.setup("time threshold",-20, plotHeight/2, -plotHeight/2));
     gui.add(freq_threshold.setup("freq threshold",100,0, plotHeight));
     
+}
+
+//------------------------------------------------------------
+void ofApp::shuffle_midiNotes() {
+    std::random_shuffle(midiNotes.begin()+1, midiNotes.end()); // +1 to ignore first 0 value
+}
+
+//------------------------------------------------------------
+void ofApp::shuffle_timeMarkers() {
+    std::random_shuffle(timeMarkers.begin()+1, timeMarkers.end()); // +1 to ignore first 0 value
+}
+
+//------------------------------------------------------------
+int ofApp::roundUp(int numToRound, int multiple) {
+    if (multiple == 0)
+        return numToRound;
+    
+    int remainder = numToRound % multiple;
+    if (remainder == 0)
+        return numToRound;
+    
+    return numToRound + multiple - remainder;
+}
+
+//------------------------------------------------------------
+void ofApp::exportMidi() {
+    shuffle_midiNotes();
+    shuffle_timeMarkers();
+    
+    float chunkTime = (bufferSize * 1000) / FS; // milliseconds
+    
+    int interval_map = 0;
+    for (int i = 1; i < midiNotes.size(); i++) { // first element is 0
+        
+        float interval = abs(timeMarkers[i] - timeMarkers[i-1]); // random interval between two time peaks
+        int tmp_val = (int)ofMap(interval,0,chunkTime,47,384); // limits ?
+        tmp_val = roundUp(tmp_val, 96);
+        
+     
+        midiFile.addNoteOn(midiNotes[i], 127, interval_map);
+        midiFile.addNoteOff(midiNotes[i], 127, interval_map + tmp_val);
+        interval_map += tmp_val;
+        
+        cout << tmp_val << endl;
+    }
+    
+    midiFile.save("midi.mid");
 }
 
 //------------------------------------------------------------
@@ -96,6 +140,12 @@ void ofApp::draw() {
         }
     }
     
+    ofPushMatrix();
+    //ofScale(10);
+    ofSetColor(255);
+    ofDrawBitmapString("Audio JET", ofGetWidth()/2, ofGetHeight()/2);
+    ofPopMatrix();
+    
     gui.draw();
 	
 }
@@ -112,7 +162,7 @@ void ofApp::timePeaks(vector<float> buffer, float scale, float offset, float thr
     glPushMatrix();
     glTranslatef(0, plotHeight/2 + offset, 0);
     ofSetColor(255, 255, 0);
-    ofDrawLine(0, threshold, n, threshold); // threshold line
+    ofDrawLine(0, threshold, n*0.5, threshold); // threshold line
     
     int peaks = 0;
     timeMarkers.clear();
@@ -127,8 +177,8 @@ void ofApp::timePeaks(vector<float> buffer, float scale, float offset, float thr
             timeMarkers.resize(peaks);
             timeMarkers.push_back(t);
 
-            ofDrawCircle(i, buffer[i] * scale, 5);
-            ofDrawBitmapString(ofToString(t),i, 600); // times
+            ofDrawCircle(i*0.5, buffer[i] * scale, 5);
+            ofDrawBitmapString(ofToString(t),i*0.5, 600); // times
             
             
         }
@@ -184,12 +234,12 @@ void ofApp::plot(vector<float>& buffer, float scale, float offset, bool freq) {
         ofEndShape();
         glPopMatrix();
     } else {
-        ofDrawRectangle(0, 0,n, plotHeight);
+        ofDrawRectangle(0, 0,n * 0.5, plotHeight);
         glPushMatrix();
         glTranslatef(0, plotHeight / 2 + offset, 0);
         ofBeginShape();
         for (int i = 0; i < n; i++) {
-            ofVertex(i, buffer[i] * scale);
+            ofVertex(i*0.5, buffer[i] * scale);
         }
         ofEndShape();
         glPopMatrix();
@@ -261,9 +311,14 @@ void ofApp::keyPressed(int key) {
 		break;
 	}
     
-    if (key == 'p') {
+    if (key == 'p') { // snapshot of audio
         PAUSE = !PAUSE;
         cout << "PAUSE : " + ofToString(PAUSE) << endl;
     }
 
+    if (key == 'e') { // export midi file
+        cout << "Exporting midi file" << endl;
+        exportMidi();
+    }
+    
 }
