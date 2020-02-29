@@ -8,24 +8,37 @@ float powFreq(float i) {
 //------------------------------------------------------------
 void ofApp::setup() {
 	ofSetVerticalSync(true);
-
-    ofSoundStreamListDevices();
+    
+    ofSetWindowTitle("Audio JET 0.0.1");
+    
+    cout << fft.stream.getDeviceList() << endl;
+    string txt = "Select the audio input device (0-" + ofToString(fft.stream.getDeviceList().size()-1) + ") : \n\n";
+    for (int i = 0; i < fft.stream.getDeviceList().size(); i++) {
+        txt += ofToString(fft.stream.getDeviceList()[i]) + "\n\n";
+    }
+    string dev = ofSystemTextBoxDialog(txt);
+    int device = ofToInt(dev);
+    if ((device >= 0) && (device < fft.stream.getDeviceList().size())) { // if correct input
+        fft.setup(device,16384);
+    } else {
+        ofSystemAlertDialog("Invalid device input - setting default audio input");
+        fft.setup(0,16384);
+    }
     
     plotHeight = 128;
-    fft.setup(16384);
-    
+  
     midiNotes.resize(0);
-
     deleteMidiFile();
     
     // Gui
     gui.setup();
-    gui.add(time_threshold.setup("time threshold",64, -plotHeight/2, plotHeight/2));
-    gui.add(freq_threshold.setup("freq threshold",100,0, plotHeight));
+    gui.add(time_threshold.setup("Time threshold",20, -plotHeight/2, plotHeight/2));
+    gui.add(freq_threshold.setup("Frequency threshold",80, 0, plotHeight));
+    gui.add(upper_threshold.setup("Max Midi note length",384,0,384 * 10));
     gui.add(generate.setup("Generate Midi",200,30));
     generate.addListener(this, &ofApp::exportMidi);
-    gui.add(auto_generate.setup("Auto generate Midi",200,30));
-    auto_generate.addListener(this, &ofApp::autoGenerate);
+    //gui.add(auto_generate.setup("Auto generate Midi",200,30));
+    //auto_generate.addListener(this, &ofApp::autoGenerate);
     gui.setPosition(ofGetWidth()/2 - gui.getWidth()/2, ofGetHeight()/2 + 2.5 * gui.getHeight()/2);
 
     // Title text
@@ -87,6 +100,7 @@ void ofApp::timePeaks(vector<float>& buffer, float scale, float threshold) { // 
     for (int i = 0; i < n; i++) {
         if (buffer[i] * scale > threshold) {
             peaks++;
+            
             float t = (i * (1.0/fft.stream.getSampleRate())) * 1000; // time (ms)
             
             timeMarkers.resize(peaks);
@@ -103,11 +117,11 @@ void ofApp::freqPeaks(vector<float>& buffer, float scale, float threshold) { // 
     midiNotes.clear();
     for (int i = 0; i < n; i++) {
         if (buffer[i] * scale > threshold) {
-            peaks++;
         
             float f = ((fft.stream.getSampleRate() * 0.5) / buffer.size()) * i;                      // frequency (Hz)
             int midiNote = 12 * log2(f / 440.0) + 69;    // midi
             if (midiNote > 0) {
+                peaks++;
                 midiNotes.resize(peaks);
                 midiNotes.push_back(midiNote);
             }
@@ -156,7 +170,7 @@ void ofApp::exportMidi() {
     
     if ((midiNotes.size() < 1) || (timeMarkers.size() < 2)) {
         // abort export
-        ofSystemAlertDialog("Midi Export aborted :: No midiNotes or timeMarkers detected - please adjust thresholds");
+        ofSystemAlertDialog("Midi Export failed - please adjust thresholds");
     } else {
 
         // clear previous file
@@ -171,8 +185,8 @@ void ofApp::exportMidi() {
         for (int i = 1; i < midiNotes.size(); i++) { // first element is 0
             
             float interval = abs(timeMarkers[i] - timeMarkers[i-1]); // random interval between two time peaks
-            int tmp_val = (int)ofMap(interval,0,chunkTime,47,384); // limits ?
-            tmp_val = roundUp(tmp_val, 96);
+            int tmp_val = (int)ofMap(interval,0,chunkTime, 47, upper_threshold); // limits ?
+            tmp_val = roundUp(tmp_val, 96); // round to multiples (96 is one bar - i think)
             
             midiFile.addNoteOn(midiNotes[i], 127, interval_map);
             midiFile.addNoteOff(midiNotes[i], 127, interval_map + tmp_val);
@@ -182,7 +196,7 @@ void ofApp::exportMidi() {
         }
         
         midiFile.save("midi.mid");
-        ofSystemAlertDialog("Midi Export successful :)");
+        ofSystemAlertDialog("Midi Export successful");
     }
 }
 
@@ -202,18 +216,25 @@ void ofApp::draw() {
     
     if (PAUSE) {
         ofSetColor(255);
-        ofDrawBitmapString("Midi Notes :", 700, 200);
+        ofPushMatrix();
+        ofTranslate(100, ofGetHeight()/2);
+        ofDrawBitmapString("Midi Notes :", 0, 0);
         for (int i = 1; i < midiNotes.size(); i++) { // first index is 0
-            ofDrawBitmapString(ofToString(midiNotes[i]),700, 200 + (i * 15));
-            // export to midi file
-        }
-        ofDrawBitmapString("Time markers :", 900, 200);
-        for (int i = 1; i < timeMarkers.size(); i++) {
-            if (i < 30) {
-                ofDrawBitmapString(ofToString(timeMarkers[i]),900, 200 + (i * 15));
+            if (i < 10) {
+                ofDrawBitmapString(ofToString(midiNotes[i]), 0, 15 + (i * 15));
             }
-            
         }
+        ofPopMatrix();
+        
+        ofPushMatrix();
+        ofTranslate(220, ofGetHeight()/2);
+        ofDrawBitmapString("Time markers :", 0, 0);
+        for (int i = 1; i < timeMarkers.size(); i++) {
+            if (i < 10) {
+                ofDrawBitmapString(ofToString(timeMarkers[i]), 0, 15 + (i * 15));
+            }
+        }
+        ofPopMatrix();
     }
     
     // Titles & Gui
@@ -254,9 +275,5 @@ void ofApp::keyPressed(int key) {
         }
     }
 
-    if (key == 'e') { // export midi file
-        cout << "Exporting midi file" << endl;
-        exportMidi();
-    }
     
 }

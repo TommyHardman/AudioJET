@@ -42,6 +42,7 @@ public:
     // Gui
     ofxPanel gui;
     ofxFloatSlider freq_threshold, time_threshold;
+    ofxIntSlider upper_threshold; // max midi note length
     ofxButton generate, auto_generate;
     
     // Title
