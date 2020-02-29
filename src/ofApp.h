@@ -6,7 +6,6 @@
 #include "ofxEasyFft.h"
 
 
-
 class ofApp : public ofBaseApp {
 public:
 	void setup();
@@ -27,6 +26,8 @@ public:
     int roundUp(int numToRound, int multiple);
     
     void exportMidi();
+    void deleteMidiFile(); // delete before writing new
+    void autoGenerate();
 
     // vars
     int plotHeight;
@@ -41,9 +42,10 @@ public:
     // Gui
     ofxPanel gui;
     ofxFloatSlider freq_threshold, time_threshold;
-    ofxButton generate;
+    ofxButton generate, auto_generate;
     
     // Title
-    ofTrueTypeFont    verdana30;
+    ofTrueTypeFont verdana16, verdana24;
     string TITLE = "Audio JET";
+    string INFO = "...Press spacebar to pause the audio stream...";
 };
