@@ -29,6 +29,8 @@ public:
     void deleteMidiFile(); // delete before writing new
     void autoGenerate();
 
+    string save_path;
+    
     // vars
     int plotHeight;
     

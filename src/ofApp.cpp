@@ -9,6 +9,11 @@ float powFreq(float i) {
 void ofApp::setup() {
 	ofSetVerticalSync(true);
     
+    
+    save_path = ofFilePath::getUserHomeDir() + "/Downloads";
+    
+    ofSetDataPathRoot("../Resources/data/"); // set resources inside built app
+    
     ofSetWindowTitle("Audio JET 0.0.1");
     
     cout << fft.stream.getDeviceList() << endl;
@@ -87,7 +92,7 @@ void ofApp::plot(vector<float>& buffer, float scale, float threshold) {
 //------------------------------------------------------------
 void ofApp::deleteMidiFile() {
     midiFile.clear(); // clear file and save
-    midiFile.save("midi.mid");
+    midiFile.save(save_path + "/midi.mid");
 }
 
 
@@ -195,7 +200,7 @@ void ofApp::exportMidi() {
             cout << tmp_val << endl;
         }
         
-        midiFile.save("midi.mid");
+        midiFile.save(save_path + "/midi.mid");
         ofSystemAlertDialog("Midi Export successful");
     }
 }
